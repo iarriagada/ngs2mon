@@ -17,11 +17,13 @@ ngs2nvtemp = epics.PV('aom:ngs2:tempNuvu')
 ngs2 = paramiko.SSHClient()
 ngs2.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 ngs2.connect(NGS2IP, username=NGS2USER, password=NGS2PASS)
+time.sleep(0.2)
 # print([line for line in stdout])
 # aocmdOut = stdout
 # for line in stdout.split('\n'):
 while(True):
     startWhile = datetime.now()
+    nuvuTemp = ''
     stdin, stdout, stderr = ngs2.exec_command(NGS2CMD)
     for line in stdout:
         # print(line.strip('\n'))
@@ -29,7 +31,10 @@ while(True):
         if not(tempsrch == None):
             nuvuTemp = line.split('=')[1]
             # print(nuvuTemp)
-            ngs2nvtemp.put(float(nuvuTemp))
+    if nuvuTemp == '':
+        ngs2nvtemp.put(9999)
+    else:
+        ngs2nvtemp.put(nuvuTemp)
     currTime = datetime.now()
     loopTime = (currTime - startWhile).total_seconds()
     waitTime = 10 - loopTime

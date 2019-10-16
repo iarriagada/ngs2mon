@@ -35,7 +35,7 @@ while(True):
     # If there's no reading from NGS2, assume is down and publish nonsensical
     # temperature, else publish Nuvu Cam Temp
     if nuvuTemp == '':
-        ngs2nvtemp.put(9999)
+        ngs2nvtemp.put(float(NaN))
     else:
         ngs2nvtemp.put(nuvuTemp)
     # Calculate while loop exec time

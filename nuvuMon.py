@@ -36,14 +36,15 @@ def send_email(content, header):
         s = smtplib.SMTP('localhost')
         s.sendmail(FROM_EMAIL, [email], msg.as_string())
         s.quit()
-        print('Email send to ' + email)
+        # print('Email send to ' + email)
 
 
 if __name__ == '__main__':
 
     os.environ['EPICS_CA_ADDR_LIST'] = NGS2IP + ' ' + AOMIP
 
-    logging.basicConfig(filename="nuvu.log", level=logging.INFO, format='%(levelname)s:%(asctime)s: %(message)s')
+    logging.basicConfig(filename="nuvu" + str(datetime.today().date()) + ".log",
+                        level=logging.INFO, format='%(levelname)s:%(asctime)s: %(message)s')
 
     # Make connection to Nuvu Temperature record on AOM IOC
     try:
@@ -59,6 +60,12 @@ if __name__ == '__main__':
         ngs2.connect(NGS2IP, username=NGS2USER, password=NGS2PASS)
     except Exception as e:
         logging.exception(str(e))
+        # Make email structure when connection failed
+        subject = 'NUVU-ALARM: SSH connection failed'
+        note = '\n' + '\n' + 'NOTE: Please check ERROR in nuvu' + str(datetime.today().date()) + '.log'
+        message = '\n' + 'SSH connection failed at ' + datetime.now().ctime()
+        message_to_send = message + note
+        send_email(message_to_send, subject)
         exit(0)
 
     # Sleep to give time to slow connection to return valid state
@@ -88,9 +95,9 @@ if __name__ == '__main__':
             if nuvuTemp == '':
                 ngs2nvtemp.put(float('nan'))
                 logging.error('Null temperature')
-                # Make email structure
-                subject = 'Null temperature detected'
-                note = '\n' + '\n' + 'NOTE: Please check nuvu' + str(datetime.today().date()) + '.log'
+                # Make email structure when the temperature is null
+                subject = 'NUVU-ALARM: Null temperature detected'
+                note = '\n' + '\n' + 'NOTE: Please check INFO in nuvu' + str(datetime.today().date()) + '.log'
                 message = '\n' + 'Null temperature detected at ' + datetime.now().ctime()
                 message_to_send = message + note
                 send_email(message_to_send, subject)

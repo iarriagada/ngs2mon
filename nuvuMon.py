@@ -13,7 +13,6 @@ from datetime import datetime
 # Environment information for AOM and NGS2 IOCs
 AOMIP = '172.17.65.100'
 NGS2IP = '172.17.65.31'
-INPOSSIMIP = '172.16.71.41'
 NGS2USER = 'root'
 NGS2PASS = 'ngs2@cERROp'
 NGS2CMD = '/opt/ao/bin/aocmd "tcp://localhost:45000" "STATUS"'
@@ -33,23 +32,31 @@ def on_conn_change(pvname=None, conn=None, **kws):
     """
 
     if not conn:
-        email_content = "\n" + 'Channel ' + pvname + ' connection status changed at ' + \
+        email_content = 'Channel ' + pvname + ' connection status changed at ' + \
                         datetime.now().ctime() + ' to disconnected.'
-        head = 'NUVU-ALARM: Timeout connection detected on ' + pvname
-        send_email(email_content, head)
+        head = 'Timeout connection detected on ' + pvname
+        send_email(email_content, head, '', '')
 
 
-def send_email(content, header):
+def send_email(content, header, logging_level, day_file):
     """
     Function that send the email of the issue to a specifics persons.
+    :param day_file: the date of day
+    :type day_file: str
+    :param logging_level: the logging level
+    :type logging_level: str
     :param header: The email subject
     :type header: str
     :param content: The content of the message
     :type content: str
     """
+    if not logging_level and not day_file:
+        note = '\n' + '\n' + 'NOTE: Please check ' + logging_level + ' in nuvu' + day_file + '.log' + '\n'
+    else:
+        note = ''
     for email in EMAILS_TO_SEND:
-        msg = MIMEText(content)
-        msg['Subject'] = header
+        msg = MIMEText('\n' + content + note)
+        msg['Subject'] = 'NUVU-ALARM: ' + header
         msg['From'] = FROM_EMAIL
         msg['To'] = email
         s = smtplib.SMTP('localhost')
@@ -60,16 +67,17 @@ def send_email(content, header):
 
 if __name__ == '__main__':
 
-    os.environ['EPICS_CA_ADDR_LIST'] = NGS2IP + ' ' + AOMIP + ' ' + INPOSSIMIP
+    os.environ['EPICS_CA_ADDR_LIST'] = NGS2IP + ' ' + AOMIP
     ssh_attempts_count = 0
+    null_temperature_count = 0
+    null_temperature_beginning_date = ''
     beginning_date = datetime.today().date()  # Here it's used to know the date when the script start
     logging.basicConfig(filename="nuvu" + str(beginning_date) + ".log",
                         level=logging.INFO, format='%(levelname)s:%(asctime)s: %(message)s')
 
     # Make connection to Nuvu Temperature record on AOM IOC
     try:
-        # ngs2nvtemp = epics.PV('aom:ngs2:tempNuvu', connection_callback=on_conn_change)
-        ngs2nvtemp = epics.PV('ips:ngs2:tempNuvu', connection_callback=on_conn_change)
+        ngs2nvtemp = epics.PV('aom:ngs2:tempNuvu', connection_callback=on_conn_change)
     except Exception as e:
         logging.exception(str(e))
         exit(0)
@@ -91,13 +99,12 @@ if __name__ == '__main__':
         actual_date = datetime.today().date()  # Used to know the date in each loop
         # If the date from actual_date is later than beginning_date creates a new nuvu.log file
         if actual_date > beginning_date:
-            beginning_date = actual_date  # Set beginning_date to today date, to compare it the next day
             # Remove handler for set basicConfig of the logging again
             for handler in logging.root.handlers[:]:
                 logging.root.removeHandler(handler)
-
             logging.basicConfig(filename="nuvu" + str(actual_date) + ".log",
                                 level=logging.INFO, format='%(levelname)s:%(asctime)s: %(message)s')
+            beginning_date = actual_date  # Set beginning_date to today date, to compare it the next day
 
         startWhile = datetime.now()  # Used to calculate total loop time
         nuvuTemp = ''
@@ -111,7 +118,6 @@ if __name__ == '__main__':
                 time.sleep(60)
                 continue
 
-
             for line in stdout:
                 # Search for camera body temp on aocmd STATUS output
                 tempsrch = re.search('body', line)
@@ -124,17 +130,27 @@ if __name__ == '__main__':
                 if nuvuTemp == '':
                     # ngs2nvtemp.put(float('nan'))
                     logging.error('Null temperature')
-                    # Make email structure when the temperature is null
-                    subject = 'NUVU-ALARM: Null temperature detected'
-                    note = '\n' + '\n' + 'NOTE: Please check INFO in nuvu' + str(
-                        datetime.today().date()) + '.log' + '\n'
-                    message = '\n' + 'Null temperature detected at ' + datetime.now().ctime()
-                    message_to_send = message + note
-                    send_email(message_to_send, subject)
+
+                    null_temperature_count += 1  # Used to count the times that temperature threw null
+                    # If the temperature threw null for first time, send an email
+                    if null_temperature_count == 1:
+                        null_temperature_beginning_date = datetime.now().ctime()
+                        # Make email structure when the temperature is null for first time
+                        message = 'Null temperature detected at ' + null_temperature_beginning_date
+                        send_email(message, 'Null temperature detected', 'ERROR', str(datetime.today().date()))
                 else:
                     print nuvuTemp, datetime.now()
                     # ngs2nvtemp.put(nuvuTemp)
                     logging.info('Temperature: {0}'.format(nuvuTemp))
+
+                    # If the temperature threw null more than one time, send an email when temperature stop threw null
+                    if null_temperature_count > 1:
+                        # Make email structure when the temperature is null
+                        message = 'Null temperature detected ' + str(null_temperature_count) + ' times from ' \
+                                  + null_temperature_beginning_date + ' to ' + datetime.now().ctime()
+                        send_email(message, 'Null temperature detected', 'ERROR', str(datetime.today().date()))
+                        null_temperature_count = 0
+
             except Exception as e:
                 logging.exception(str(e))
                 time.sleep(10)
@@ -155,12 +171,9 @@ if __name__ == '__main__':
         else:
             if ssh_attempts_count >= 3:
                 # Make email structure when connection failed
-                subject = 'NUVU-ALARM: SSH connection failed'
-                note = '\n' + '\n' + 'NOTE: Please check ERROR in nuvu' + str(datetime.today().date()) + '.log' + '\n'
                 message = '\n' + "Try to reconnect three times but SSH connection wasn't able to restore at " \
                           + datetime.now().ctime()
-                message_to_send = message + note
-                send_email(message_to_send, subject)
+                send_email(message, 'SSH connection failed', 'ERROR', str(datetime.today().date()))
                 ssh_attempts_count = 0
                 exit(0)
             ssh_attempts_count += 1

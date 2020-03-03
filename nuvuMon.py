@@ -109,7 +109,13 @@ if __name__ == '__main__':
         startWhile = datetime.now()  # Used to calculate total loop time
         nuvuTemp = ''
 
-        if ngs2.get_transport() is not None:
+        if ngs2.get_transport().active:
+            if ssh_attempts_count > 0:
+                # Make email structure when reconnection it's successful
+                message = '\n' + "SSH session recovery on host '" + NGS2IP + "' at " \
+                          + datetime.now().ctime()
+                send_email(message, 'SSH re-connection successful', '', '')
+                ssh_attempts_count = 0
             # Execute aocmd on NGS2 rtc
             try:
                 stdin, stdout, stderr = ngs2.exec_command(NGS2CMD)
@@ -128,7 +134,7 @@ if __name__ == '__main__':
             # temperature, else publish Nuvu Cam Temp
             try:
                 if nuvuTemp == '':
-                    # ngs2nvtemp.put(float('nan'))
+                    ngs2nvtemp.put(float('nan'))
                     logging.error('Null temperature')
 
                     null_temperature_count += 1  # Used to count the times that temperature threw null
@@ -140,7 +146,7 @@ if __name__ == '__main__':
                         send_email(message, 'Null temperature detected', 'ERROR', str(datetime.today().date()))
                 else:
                     print nuvuTemp, datetime.now()
-                    # ngs2nvtemp.put(nuvuTemp)
+                    ngs2nvtemp.put(nuvuTemp)
                     logging.info('Temperature: {0}'.format(nuvuTemp))
 
                     # If the temperature threw null more than one time, send an email when temperature stop threw null
@@ -169,15 +175,27 @@ if __name__ == '__main__':
             time.sleep(waitTime)
 
         else:
-            if ssh_attempts_count >= 3:
+            logging.error('SSH connection failed')
+            ssh_attempts_count += 1
+            if ssh_attempts_count > 3:
                 # Make email structure when connection failed
-                message = '\n' + "Try to reconnect three times but SSH connection wasn't able to restore at " \
-                          + datetime.now().ctime()
+                message = '\n' + "Try to reconnect three times SSH connection on host '" + NGS2IP + \
+                          "' but wasn't able to restore at " + datetime.now().ctime()
                 send_email(message, 'SSH connection failed', 'ERROR', str(datetime.today().date()))
                 ssh_attempts_count = 0
                 exit(0)
-            ssh_attempts_count += 1
-            ngs2.close()
-            ngs2.connect(NGS2IP, username=NGS2USER, password=NGS2PASS)
+            elif ssh_attempts_count == 1:
+                # Make email structure when connection failed for first time
+                message = '\n' + "SSH session not active on host '" + NGS2IP + "' at " \
+                          + datetime.now().ctime()
+                send_email(message, 'SSH connection failed', 'ERROR', str(datetime.today().date()))
+            try:
+                logging.info('Reconnecting SSH...')
+                ngs2.close()
+                ngs2.connect(NGS2IP, username=NGS2USER, password=NGS2PASS)
+            except Exception as e:
+                logging.exception(str(e))
+                time.sleep(5)
+                continue
 
     ngs2.close()  # Close ssh connection

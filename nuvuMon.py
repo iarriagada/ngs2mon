@@ -32,6 +32,7 @@ def on_conn_change(pvname=None, conn=None, **kws):
     """
 
     if not conn:
+        logging.error('Channel ' + pvname + 'connection status changed to disconnected')
         email_content = 'Channel ' + pvname + ' connection status changed at ' + \
                         datetime.now().ctime() + ' to disconnected.'
         head = 'Timeout connection detected on ' + pvname
@@ -109,6 +110,7 @@ if __name__ == '__main__':
         startWhile = datetime.now()  # Used to calculate total loop time
         nuvuTemp = ''
 
+        # If the ngs2 SHH connection still active, execute the NGS2CMD command. Else, try to reconnect
         if ngs2.get_transport().active:
             if ssh_attempts_count > 0:
                 # Make email structure when reconnection it's successful
@@ -145,7 +147,6 @@ if __name__ == '__main__':
                         message = 'Null temperature detected at ' + null_temperature_beginning_date
                         send_email(message, 'Null temperature detected', 'ERROR', str(datetime.today().date()))
                 else:
-                    print nuvuTemp, datetime.now()
                     ngs2nvtemp.put(nuvuTemp)
                     logging.info('Temperature: {0}'.format(nuvuTemp))
 
@@ -176,9 +177,9 @@ if __name__ == '__main__':
 
         else:
             logging.error('SSH connection failed')
-            ssh_attempts_count += 1
+            ssh_attempts_count += 1  # used to count the attempts of SSH reconnection
             if ssh_attempts_count > 3:
-                # Make email structure when connection failed
+                # Make email structure when reconnection failed
                 message = '\n' + "Try to reconnect three times SSH connection on host '" + NGS2IP + \
                           "' but wasn't able to restore at " + datetime.now().ctime()
                 send_email(message, 'SSH connection failed', 'ERROR', str(datetime.today().date()))
@@ -189,6 +190,7 @@ if __name__ == '__main__':
                 message = '\n' + "SSH session not active on host '" + NGS2IP + "' at " \
                           + datetime.now().ctime()
                 send_email(message, 'SSH connection failed', 'ERROR', str(datetime.today().date()))
+            # Try to reconnect
             try:
                 logging.info('Reconnecting SSH...')
                 ngs2.close()

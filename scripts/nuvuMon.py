@@ -15,8 +15,8 @@ NGS2USER = 'root'
 NGS2PASS = 'ngs2@cERROp'
 NGS2CMD = '/opt/ao/bin/aocmd "tcp://localhost:45000" "STATUS"'
 os.environ['EPICS_CA_ADDR_LIST'] = NGS2IP + ' ' + AOMIP
-LOGPATH = '/gemsoft/var/log/'
-LOGFILENAME = 'nuvumon.log'
+LOGPATH = '/gemsoft/var/log/nuvuMon/'
+LOGFILENAME = 'nuvuMon.log'
 LOGFILE = LOGPATH + LOGFILENAME
 
 nuvu_log = logging.getLogger()

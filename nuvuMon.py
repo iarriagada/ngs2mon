@@ -15,14 +15,24 @@ NGS2USER = 'root'
 NGS2PASS = 'ngs2@cERROp'
 NGS2CMD = '/opt/ao/bin/aocmd "tcp://localhost:45000" "STATUS"'
 os.environ['EPICS_CA_ADDR_LIST'] = NGS2IP + ' ' + AOMIP
+LOGPATH = '/gemsoft/var/log/'
+LOGFILENAME = 'nuvumon.log'
+LOGFILE = LOGPATH + LOGFILENAME
 
-logging.basicConfig(filename="nuvu.log", level=logging.INFO, format='%(levelname)s:%(asctime)s: %(message)s')
+nuvu_log = logging.getLogger()
+test_log.setLevel(logging.INFO)
+log_format = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+log_handler = TimedRotatingFileHandler(LOG_FILE, when="midnight", interval=1,
+                                       atTime=datetime.time(hour=8))
+log_handler.suffix = "%Y%m%dT%H%M%S"
+log_handler.setFormatter(log_format)
+nuvu_log.addHandler(log_handler)
 
 # Make connection to Nuvu Temperature record on AOM IOC
 try:
     ngs2nvtemp = epics.PV('aom:ngs2:tempNuvu')
 except Exception as e:
-    logging.exception(str(e))
+    nuvu_log.exception(str(e))
     exit(0)
 
 # Make ssh connection to NGS2 rtc
@@ -31,7 +41,7 @@ try:
     ngs2.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ngs2.connect(NGS2IP, username=NGS2USER, password=NGS2PASS)
 except Exception as e:
-    logging.exception(str(e))
+    nuvu_log.exception(str(e))
     exit(0)
 
 # Sleep to give time to slow connection to return valid state
@@ -45,7 +55,7 @@ while True:
     try:
         stdin, stdout, stderr = ngs2.exec_command(NGS2CMD)
     except Exception as e:
-        logging.exception(str(e))
+        nuvu_log.exception(str(e))
         time.sleep(60)
         continue
 
@@ -60,22 +70,22 @@ while True:
     try:
         if nuvuTemp == '':
             ngs2nvtemp.put(float('nan'))
-            logging.error('Null temperature')
+            nuvu_log.error('Null temperature')
         else:
             ngs2nvtemp.put(nuvuTemp)
-            logging.info('Temperature: {0}'.format(nuvuTemp))
+            nuvu_log.info('Temperature: {0}'.format(nuvuTemp))
     except Exception as e:
-        logging.exception(str(e))
+        nuvu_log.exception(str(e))
         time.sleep(10)
         continue
 
     # Calculate while loop exec time
     currTime = datetime.now()
     loopTime = (currTime - startWhile).total_seconds()
-    logging.info('Loop time: {0}'.format(loopTime))
+    nuvu_log.info('Loop time: {0}'.format(loopTime))
     waitTime = 10 - loopTime
     if loopTime > 10:
-        logging.error('Loop took too long')
+        nuvu_log.error('Loop took too long')
         continue
 
     # Wait until checking again

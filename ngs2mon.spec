@@ -111,4 +111,4 @@ rm -rf $RPM_BUILD_ROOT
 # * Thu Dec 6 2007 John Doe <jdoe@gemini.edu> VERSION-RELEASE
 # - change made
 # - other change made
-* Package created for nuvuMon ignacio.arriagada@noirlab.edu
+#* Fri Oct 1 2021 Ignacio Arriagada <ignacio.arriagada@noirlab.edu> Package created for nuvuMon 

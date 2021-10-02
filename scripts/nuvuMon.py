@@ -6,13 +6,15 @@ import os
 import time
 import re
 import logging
+import datetime as dt
+from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime, timedelta
 
 # Environment information for AOM and NGS2 IOCs
 AOMIP = '172.17.65.100'
 NGS2IP = '172.17.65.31'
-NGS2USER = 'root'
-NGS2PASS = 'ngs2@cERROp'
+NGS2USER = 'software'
+NGS2PASS = 'Aliquamliber0!'
 NGS2CMD = '/opt/ao/bin/aocmd "tcp://localhost:45000" "STATUS"'
 os.environ['EPICS_CA_ADDR_LIST'] = NGS2IP + ' ' + AOMIP
 LOGPATH = '/gemsoft/var/log/nuvuMon/'
@@ -20,10 +22,10 @@ LOGFILENAME = 'nuvuMon.log'
 LOGFILE = LOGPATH + LOGFILENAME
 
 nuvu_log = logging.getLogger()
-test_log.setLevel(logging.INFO)
+nuvu_log.setLevel(logging.INFO)
 log_format = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-log_handler = TimedRotatingFileHandler(LOG_FILE, when="midnight", interval=1,
-                                       atTime=datetime.time(hour=8))
+log_handler = TimedRotatingFileHandler(LOGFILE, when="midnight", interval=1,
+                                       atTime=dt.time(hour=8))
 log_handler.suffix = "%Y%m%dT%H%M%S"
 log_handler.setFormatter(log_format)
 nuvu_log.addHandler(log_handler)

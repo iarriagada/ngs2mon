@@ -19,7 +19,7 @@ BuildArch: %{arch}
 #Prefix: %{_prefix}
 ## You may specify dependencies here
 BuildRequires: gemini-top
-Requires: gemini-top gemini-setup python3 rpm-build subversion
+Requires: gemini-top gemini-setup python3 rpm-build subversion gem-logconflib
 ## Switch dependency checking off
 # AutoReqProv: no
 
@@ -53,14 +53,15 @@ Script that monitors temperature from the NGS2 Nuvu camera and post the values o
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system/
 mkdir -p $RPM_BUILD_ROOT/%{_prefix}/bin/
+mkdir -p $RPM_BUILD_ROOT/%{_prefix}/var/log/nuvuMon/
 install -D -m 644 systemd/* $RPM_BUILD_ROOT/usr/lib/systemd/system/
 install -D -m 755 scripts/* $RPM_BUILD_ROOT/%{_prefix}/bin/
+install -D -m 666 log/* $RPM_BUILD_ROOT/%{_prefix}/var/log/nuvuMon/
 
 ## if you want to do something after installation uncomment the following
 ## and list the actions to perform:
 %post
 ## actions, e.g. /sbin/ldconfig
-mkdir -p %{_prefix}/var/log/nuvuMon/
 systemctl enable nuvuMon
 systemctl start nuvuMon
 
@@ -98,6 +99,7 @@ rm -rf $RPM_BUILD_ROOT
 ## %{_prefix}/zzz/zzz
 /usr/lib/systemd/system/nuvuMon.service
 %{_prefix}/bin/nuvuMon.py
+%{_prefix}/var/log/nuvuMon/nuvuMonLog.conf
 
 ## If you want to have a devel-package to be generated uncomment the following
 # %files devel

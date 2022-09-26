@@ -5,6 +5,7 @@ import epics
 import os
 import time
 import re
+import subprocess as sp
 from gemlogconflib import gemlogconf
 from datetime import datetime, timedelta
 
@@ -104,13 +105,15 @@ if __name__ == '__main__':
             temp_body = float('nan')
             temp_ccd = float('nan')
             nuvu_log.error('Body and CCD Null temperature. Check cpongs2-lp1')
-        else if:
+        else:
             nuvu_log.debug('Body Temperature: {0}'.format(temp_body))
             nuvu_log.debug('CCD Temperature: {0}'.format(temp_ccd))
+        # Put values in EPICS records and capture result. Compose error message
+        # if channels are disconnected
         body_put = ngs2bodytemp.put(temp_body)
         ccd_put = ngs2ccdtemp.put(temp_ccd)
         body_ca_msg = f'{BODY_TEMP_CHAN} is disconnected!!!'
-        ccd_ca_msg = f'{CCR_TEMP_CHAN} is disconnected!!!'
+        ccd_ca_msg = f'{CCD_TEMP_CHAN} is disconnected!!!'
         full_msg = (body_ca_msg * bool(not(body_put)) +
                     ccd_ca_msg * bool(not(ccd_put)))
         if full_msg:
